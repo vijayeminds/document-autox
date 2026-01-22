@@ -121,7 +121,7 @@ export default function WorklistTable({ invoices }) {
               </TableRow>
             ) : (
               invoices.map((invoice) => {
-                const statusConfig = getStatusConfig(invoice.status);
+                const statusConfig = getStatusConfig(invoice.bucket_name);
                 const StatusIcon = statusConfig.icon;
                 const slaBadge = getSLABadge(invoice.sla_hours);
 
@@ -134,16 +134,16 @@ export default function WorklistTable({ invoices }) {
                     onMouseLeave={() => setHoveredRow(null)}
                   >
                     <TableCell className="font-mono font-medium text-slate-900">
-                      {invoice.id}
+                      {invoice.po_id}
                     </TableCell>
                     <TableCell className="font-medium text-slate-900">
-                      {invoice.vendor}
+                      {invoice.extracted_json?.supplier?.name || "—"}
                     </TableCell>
                     <TableCell className="font-semibold text-slate-900">
-                      ${invoice.amount.toLocaleString()}
+                      ${invoice.extracted_json?.summary?.grand_total?.toLocaleString()}
                     </TableCell>
                     <TableCell className="font-mono text-slate-600 text-sm">
-                      {invoice.po_number || (
+                      {invoice.po_id || (
                         <span className="text-amber-600 font-medium">
                           Missing
                         </span>
@@ -155,7 +155,7 @@ export default function WorklistTable({ invoices }) {
                         className={`${statusConfig.color} border`}
                       >
                         {StatusIcon && <StatusIcon className="w-3 h-3 mr-1" />}
-                        {invoice.status}
+                        {invoice.bucket_name}
                       </Badge>
                     </TableCell>
                     <TableCell>

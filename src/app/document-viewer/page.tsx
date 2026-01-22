@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createPageUrl } from "@/utils";
+import { axiosInstance, createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,15 @@ export default function DocumentViewer() {
         // User not authenticated
       }
     };
+    const getDocumentDetails = async () =>{
+      try{
+        const {data} = await axiosInstance.get(`/api/v1/invoice/${documentId}`)
+        console.log(data)
+      }catch(err){
+        console.log(err)
+      }
+    }
+    getDocumentDetails()
     loadUser();
   }, []);
 

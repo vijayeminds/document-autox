@@ -448,8 +448,8 @@ function calculateValidations(chain, links) {
     const hasLink = links.some(
       (link) =>
         (link.source_document_id === po.id &&
-          link.target_document_id === invoice.id) ||
-        (link.source_document_id === invoice.id &&
+          link.target_document_id === invoice._id) ||
+        (link.source_document_id === invoice._id &&
           link.target_document_id === po.id)
     );
     validations.push({

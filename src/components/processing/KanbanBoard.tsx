@@ -137,13 +137,13 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
   const handleCardClick = (invoice) => {
     if (focusedView) {
       // In focused view, open modal - use document_id from sample data
-      const docId = invoice.document_id || "doc_sample_" + invoice.id;
+      const docId = invoice._id || "doc_sample_" + invoice.id;
       setSelectedInvoiceId(docId);
       setModalOpen(true);
     } else {
       // In normal view, navigate to page
-      const docId = invoice.document_id || "doc_sample_" + invoice.id;
-      router.push(createPageUrl("DocumentViewer") + `?id=${docId}`);
+      const docId = invoice._id || "doc_sample_" + invoice.id;
+      router.push(createPageUrl("Document-Viewer") + `?id=${docId}`);
     }
   };
 
@@ -170,7 +170,7 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
           <div className="flex gap-3 px-4 py-4 h-full min-w-max">
             {COLUMNS.map((column) => {
             const columnInvoices = localInvoices.filter(
-              (inv) => inv.status === column.id
+              (inv) => inv.bucket_name === column.id
             );
             const summary = getColumnSummary(column.id);
 
@@ -264,15 +264,15 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
                       }`}
                     >
                       {columnInvoices.map((invoice, index) => {
-                        const badgeConfig = getStatusBadge(invoice.status);
+                        const badgeConfig = getStatusBadge(invoice.bucket_name);
                         const StatusIcon = badgeConfig.icon;
 
                         const slaStatus = getSLAStatus(invoice.sla_hours);
 
                         return (
                           <Draggable
-                            key={invoice.id}
-                            draggableId={invoice.id}
+                            key={invoice._id}
+                            draggableId={invoice._id}
                             index={index}
                           >
                             {(provided, snapshot) => (
@@ -299,21 +299,21 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
                                     {/* Invoice ID & Status */}
                                     <div className="flex items-start justify-between mb-1">
                                       <span className="text-xs font-mono font-semibold text-slate-900 truncate">
-                                        {invoice.id}
+                                        {invoice.po_id}
                                       </span>
                                     </div>
 
                                     {/* Vendor - Truncated */}
                                     <div className="mb-1.5">
                                       <p className="text-xs font-medium text-slate-700 truncate">
-                                        {invoice.vendor}
+                                        {invoice.extracted_json?.supplier?.name}
                                       </p>
                                     </div>
 
                                     {/* Amount */}
                                     <div className="mb-1.5">
                                       <p className="text-sm font-bold text-slate-900">
-                                        ${invoice.amount.toLocaleString()}
+                                        ${invoice.extracted_json?.summary?.grand_total?.toLocaleString()}
                                       </p>
                                     </div>
 
@@ -327,7 +327,7 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
                                       )}
                                       {invoice.status === "Needs Review"
                                         ? "Review"
-                                        : invoice.status}
+                                        : invoice.bucket_name}
                                     </Badge>
                                   </>
                                 ) : (
@@ -336,18 +336,18 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
                                     {/* Invoice ID */}
                                     <div className="mb-2">
                                       <span className="text-sm font-mono font-semibold text-slate-900">
-                                        {invoice.id}
+                                        {invoice.po_id}
                                       </span>
                                     </div>
 
                                     {/* Vendor */}
                                     <div className="mb-2">
                                       <p className="text-sm font-medium text-slate-700">
-                                        {invoice.vendor}
+                                        {invoice.extracted_json?.supplier?.name}
                                       </p>
-                                      {invoice.po_number && (
+                                      {invoice.po_id && (
                                         <p className="text-xs text-slate-500 mt-0.5">
-                                          PO: {invoice.po_number}
+                                          PO: {invoice.po_id}
                                         </p>
                                       )}
                                     </div>
@@ -355,7 +355,7 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
                                     {/* Amount */}
                                     <div className="mb-4">
                                       <p className="text-2xl font-bold text-slate-900">
-                                        ${invoice.amount.toLocaleString()}
+                                        ${invoice.extracted_json?.summary?.grand_total?.toLocaleString()}
                                       </p>
                                     </div>
 
@@ -369,7 +369,7 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
                                         )}
                                         {invoice.status === "Needs Review"
                                           ? "Review"
-                                          : invoice.status}
+                                          : invoice.bucket_name}
                                       </div>
                                     </div>
                                   </>

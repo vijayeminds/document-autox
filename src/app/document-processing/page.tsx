@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import KanbanBoard from "@/components/processing/KanbanBoard";
 import WorklistTable from "@/components/processing/WorklistTable";
+import { axiosInstance } from "@/utils";
 
 // Sample dataset - 18 invoices across different stages
 const SAMPLE_INVOICES = [
@@ -259,6 +260,41 @@ export default function DocumentProcessing() {
     const saved = sessionStorage.getItem("kanban-focused-view");
     return saved ? JSON.parse(saved) : false;
   });
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<string[]>([])
+  const [filteredInvoices, setFilteredInvoices] = useState<any[]>([]);
+
+  useEffect(() => {
+    const getInvoices = async () => {
+      try {
+        const { data } = await axiosInstance.get("/api/v1/invoice/invoices");
+        setInvoices(data);
+        console.log(data, typeof data)
+        // Get unique vendors
+        const vendors:string[] | any= [
+          ...new Set(data.data?.map((inv) => inv?.extracted_json?.supplier?.name)),
+        ].sort();
+        console.log(vendors, "vendors");
+        setVendors(vendors)
+
+        // Apply filters
+        const filteredInvoices = data.data.filter((invoice) => {
+          const vendorMatch =
+            vendorFilter === "all" || invoice.vendor === vendorFilter;
+          const searchMatch =
+            !searchQuery ||
+            invoice._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            invoice.vendor.toLowerCase().includes(searchQuery.toLowerCase());
+          return vendorMatch && searchMatch;
+        });
+        console.log(filteredInvoices, "filteredInvoices");
+        setFilteredInvoices(filteredInvoices)
+      } catch (err) {
+        console.log("Error fetching invoices", err);
+      }
+    };
+    getInvoices();
+  }, []);
 
   // Persist focused view preference
   useEffect(() => {
@@ -268,23 +304,9 @@ export default function DocumentProcessing() {
     window.dispatchEvent(
       new CustomEvent("kanban-focused-mode", {
         detail: { focused: focusedView && viewMode === "kanban" },
-      })
+      }),
     );
   }, [focusedView, viewMode]);
-
-  // Get unique vendors
-  const vendors = [...new Set(SAMPLE_INVOICES.map((inv) => inv.vendor))].sort();
-
-  // Apply filters
-  const filteredInvoices = SAMPLE_INVOICES.filter((invoice) => {
-    const vendorMatch =
-      vendorFilter === "all" || invoice.vendor === vendorFilter;
-    const searchMatch =
-      !searchQuery ||
-      invoice.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.vendor.toLowerCase().includes(searchQuery.toLowerCase());
-    return vendorMatch && searchMatch;
-  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
