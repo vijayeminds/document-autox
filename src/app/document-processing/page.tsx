@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -257,40 +256,43 @@ export default function DocumentProcessing() {
   const [vendorFilter, setVendorFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedView, setFocusedView] = useState(() => {
-    const saved = sessionStorage.getItem("kanban-focused-view");
-    return saved ? JSON.parse(saved) : false;
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("kanban-focused-view");
+      return saved ? JSON.parse(saved) : false;
+    }
+    return false;
   });
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [vendors, setVendors] = useState<string[]>([])
+  const [vendors, setVendors] = useState<string[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<any[]>([]);
 
   useEffect(() => {
     const getInvoices = async () => {
       try {
         const { data } = await axiosInstance.get("/api/v1/invoice/invoices");
-        setInvoices(data);
-        console.log(data, typeof data)
-        // Get unique vendors
-        const vendors:string[] | any= [
-          ...new Set(data.data?.map((inv) => inv?.extracted_json?.supplier?.name)),
-        ].sort();
-        console.log(vendors, "vendors");
-        setVendors(vendors)
+        console.log("=== Invoice Data Received ===");
+        console.log("Full response:", data);
+        console.log("Data array:", data.data);
+        console.log("Number of invoices:", data.data?.length);
 
-        // Apply filters
-        const filteredInvoices = data.data.filter((invoice) => {
-          const vendorMatch =
-            vendorFilter === "all" || invoice.vendor === vendorFilter;
-          const searchMatch =
-            !searchQuery ||
-            invoice._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            invoice.vendor.toLowerCase().includes(searchQuery.toLowerCase());
-          return vendorMatch && searchMatch;
-        });
-        console.log(filteredInvoices, "filteredInvoices");
-        setFilteredInvoices(filteredInvoices)
+        setInvoices(data.data || []);
+
+        // Get unique vendors
+        const vendors: string[] | any = [
+          ...new Set(
+            data.data?.map((inv) => inv?.extracted_json?.supplier?.name),
+          ),
+        ]
+          .filter(Boolean)
+          .sort();
+        console.log("Vendors:", vendors);
+        setVendors(vendors);
+
+        // Set all invoices as filtered initially
+        console.log("Setting filtered invoices:", data.data);
+        setFilteredInvoices(data.data || []);
       } catch (err) {
-        console.log("Error fetching invoices", err);
+        console.error("Error fetching invoices:", err);
       }
     };
     getInvoices();
@@ -298,14 +300,19 @@ export default function DocumentProcessing() {
 
   // Persist focused view preference
   useEffect(() => {
-    sessionStorage.setItem("kanban-focused-view", JSON.stringify(focusedView));
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(
+        "kanban-focused-view",
+        JSON.stringify(focusedView),
+      );
 
-    // Communicate focused mode to layout
-    window.dispatchEvent(
-      new CustomEvent("kanban-focused-mode", {
-        detail: { focused: focusedView && viewMode === "kanban" },
-      }),
-    );
+      // Communicate focused mode to layout
+      window.dispatchEvent(
+        new CustomEvent("kanban-focused-mode", {
+          detail: { focused: focusedView && viewMode === "kanban" },
+        }),
+      );
+    }
   }, [focusedView, viewMode]);
 
   return (
@@ -389,19 +396,35 @@ export default function DocumentProcessing() {
               )}
             </div>
 
-            {/* Tabs Only */}
-            <Tabs value={viewMode} onValueChange={setViewMode}>
-              <TabsList className="bg-slate-100 h-9">
-                <TabsTrigger value="table" className="gap-2 h-8">
-                  <List className="w-4 h-4" />
-                  Worklist
-                </TabsTrigger>
-                <TabsTrigger value="kanban" className="gap-2 h-8">
-                  <LayoutGrid className="w-4 h-4" />
-                  Kanban
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* View Mode Icons */}
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <Button
+                variant={viewMode === "table" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("table")}
+                className={`h-8 w-8 p-0 ${
+                  viewMode === "table"
+                    ? "bg-white shadow-sm"
+                    : "hover:bg-slate-200"
+                }`}
+                title="Worklist View"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "kanban" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("kanban")}
+                className={`h-8 w-8 p-0 ${
+                  viewMode === "kanban"
+                    ? "bg-white shadow-sm"
+                    : "hover:bg-slate-200"
+                }`}
+                title="Kanban View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -1,10 +1,9 @@
-"use client"
+"use client";
 
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
+import { createPageUrl, axiosInstance } from "@/utils";
 import { FileText, Upload, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -84,28 +83,38 @@ export default function Documents() {
 
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["documents"],
-    queryFn: () => base44.entities.Document.list("-created_date", 100),
+    queryFn: async () => {
+      try {
+        const response = await axiosInstance.get("/api/v1/invoice/invoices");
+        console.log("Documents API response:", response.data);
+        return response.data?.data || [];
+      } catch (error) {
+        console.error("Error fetching documents:", error);
+        return [];
+      }
+    },
   });
 
   // Get unique vendors for filter
-  const vendors = [...new Set(documents.map((d) => d.vendor))]
-    .filter(Boolean)
-    .sort();
+  const vendors = [
+    ...new Set(
+      documents.map((d) => d.extracted_json?.supplier?.name).filter(Boolean),
+    ),
+  ].sort();
 
   // Apply filters
   const filteredDocuments = documents.filter((doc) => {
-    if (
-      filters.document_type !== "all" &&
-      doc.document_type !== filters.document_type
-    )
+    if (filters.document_type !== "all" && filters.document_type !== "Invoice")
       return false;
-    if (filters.status !== "all" && doc.status !== filters.status) return false;
-    if (filters.vendor && doc.vendor !== filters.vendor) return false;
+    if (filters.status !== "all" && doc.bucket_name !== filters.status)
+      return false;
+    if (filters.vendor && doc.extracted_json?.supplier?.name !== filters.vendor)
+      return false;
     return true;
   });
 
   const handleDocumentClick = (doc) => {
-    router.push(createPageUrl("DocumentViewer") + `?id=${doc.id}`);
+    router.push(createPageUrl("DocumentViewer") + `?id=${doc._id}`);
   };
 
   const hasActiveFilters =
@@ -301,7 +310,7 @@ export default function Documents() {
             ) : (
               filteredDocuments.map((doc) => (
                 <TableRow
-                  key={doc.id}
+                  key={doc._id}
                   className="cursor-pointer hover:bg-slate-50 transition-colors"
                   onClick={() => handleDocumentClick(doc)}
                 >
@@ -310,35 +319,45 @@ export default function Documents() {
                       <div className="w-8 h-8 bg-slate-100 rounded flex items-center justify-center">
                         <FileText className="w-4 h-4 text-slate-600" />
                       </div>
-                      {doc.document_type}
+                      Invoice
                     </div>
                   </TableCell>
                   <TableCell className="text-slate-600 font-mono text-xs">
-                    {doc.reference_number || "—"}
+                    {doc.po_id || "—"}
                   </TableCell>
-                  <TableCell className="text-slate-900">{doc.vendor}</TableCell>
+                  <TableCell className="text-slate-900">
+                    {doc.extracted_json?.supplier?.name || "—"}
+                  </TableCell>
                   <TableCell className="text-slate-600 text-sm">
-                    {doc.document_date
-                      ? format(new Date(doc.document_date), "MMM d, yyyy")
+                    {doc.extracted_json?.invoice_metadata?.invoice_date
+                      ? format(
+                          new Date(
+                            doc.extracted_json.invoice_metadata.invoice_date,
+                          ),
+                          "MMM d, yyyy",
+                        )
                       : "—"}
                   </TableCell>
                   <TableCell className="text-slate-900 font-medium">
-                    {doc.total_amount
-                      ? `$${doc.total_amount.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}`
+                    {doc.extracted_json?.summary?.grand_total
+                      ? `${doc.extracted_json?.additional_info?.currency || "$"}${doc.extracted_json.summary.grand_total.toLocaleString(
+                          "en-US",
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
+                        )}`
                       : "—"}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={doc.status} />
+                    <StatusBadge status={doc.bucket_name} />
                   </TableCell>
                   <TableCell>
-                    <ConfidenceScore score={doc.confidence_score || 0} />
+                    <ConfidenceScore
+                      score={doc.validation_result?.totals_accuracy || 0}
+                    />
                   </TableCell>
-                  <TableCell className="text-slate-500 text-sm">
-                    {doc.source}
-                  </TableCell>
+                  <TableCell className="text-slate-500 text-sm">S3</TableCell>
                 </TableRow>
               ))
             )}

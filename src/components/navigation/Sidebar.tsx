@@ -16,6 +16,7 @@ import {
   Link2,
   ChevronLeft,
   ChevronRight,
+  FolderOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +27,8 @@ import {
 } from "@/components/ui/tooltip";
 
 const navItems = [
-  { name: "Documents", page: "Document-Processing", icon: Inbox },
+  { name: "Processing", page: "Document-Processing", icon: Inbox },
+  { name: "Documents", page: "Documents", icon: FolderOpen },
   { name: "Lifecycle", page: "Lifecycle", icon: Link2 },
   { name: "Exceptions", page: "Exceptions", icon: AlertTriangle },
   { name: "Chargebacks", page: "Chargebacks", icon: FileText },
@@ -45,7 +47,7 @@ export default function Sidebar({ currentPage, collapsed, onToggle }) {
       <aside
         className={cn(
           "bg-white border-r border-slate-200 flex flex-col h-screen transition-all duration-200 fixed left-0 top-0 z-40",
-          isExpanded ? "w-64" : "w-16"
+          isExpanded ? "w-64" : "w-16",
         )}
         onMouseEnter={() => collapsed && setHovering(true)}
         onMouseLeave={() => collapsed && setHovering(false)}
@@ -81,13 +83,13 @@ export default function Sidebar({ currentPage, collapsed, onToggle }) {
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
                   isActive
                     ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                 )}
               >
                 <Icon
                   className={cn(
                     "w-4 h-4 flex-shrink-0",
-                    isActive ? "text-white" : "text-slate-400"
+                    isActive ? "text-white" : "text-slate-400",
                   )}
                 />
                 <span className="whitespace-nowrap">{item.name}</span>
@@ -101,13 +103,13 @@ export default function Sidebar({ currentPage, collapsed, onToggle }) {
                       "flex items-center justify-center p-3 rounded-lg transition-all duration-150",
                       isActive
                         ? "bg-slate-900 text-white"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                     )}
                   >
                     <Icon
                       className={cn(
                         "w-4 h-4",
-                        isActive ? "text-white" : "text-slate-400"
+                        isActive ? "text-white" : "text-slate-400",
                       )}
                     />
                   </Link>

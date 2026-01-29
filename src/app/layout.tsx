@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { useState } from "react";
 import "./globals.css";
@@ -24,10 +24,13 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   // Get current page name from pathname
   const getCurrentPage = () => {
     const path = pathname.slice(1); // Remove leading /
-    if (!path || path === '') return 'Analytics';
-    return path.split('/')[0].split('-').map(word =>
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join('');
+    if (!path || path === "") return "Analytics";
+    // Convert pathname to match the format in navItems (e.g., "/document-processing" -> "Document-Processing")
+    return path
+      .split("/")[0]
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join("-");
   };
 
   return (
@@ -39,12 +42,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       />
       <div
         className="min-h-screen transition-all duration-200"
-        style={{ paddingLeft: sidebarCollapsed ? '64px' : '256px' }}
+        style={{ paddingLeft: sidebarCollapsed ? "64px" : "256px" }}
       >
         <TopBar user={user} onSearch={setSearchQuery} />
-        <main className="flex-1">
-          {children}
-        </main>
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   );

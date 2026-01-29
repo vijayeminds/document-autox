@@ -19,18 +19,27 @@ const Tabs = ({ children, defaultValue, value, onValueChange, className }: any) 
 
   return (
     <div className={className}>
-      {React.Children.map(children, child =>
-        React.cloneElement(child, { value: selectedValue, onValueChange: handleChange })
-      )}
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child)) {
+          return React.cloneElement(child, { 
+            selectedValue: selectedValue, 
+            onValueChange: handleChange 
+          } as any)
+        }
+        return child
+      })}
     </div>
   )
 }
 
-const TabsList = ({ children, value, onValueChange, className }: any) => (
-  <div className={cn("inline-flex h-10 items-center justify-center rounded-md bg-slate-100 p-1 text-slate-500", className)}>
-    {React.Children.map(children, child =>
-      React.cloneElement(child, { selectedValue: value, onValueChange })
-    )}
+const TabsList = ({ children, selectedValue, onValueChange, className }: any) => (
+  <div className={cn("inline-flex h-12 items-center justify-start gap-1 border-b border-slate-200 w-full bg-white", className)}>
+    {React.Children.map(children, child => {
+      if (React.isValidElement(child)) {
+        return React.cloneElement(child, { selectedValue, onValueChange } as any)
+      }
+      return child
+    })}
   </div>
 )
 
@@ -39,10 +48,10 @@ const TabsTrigger = ({ children, value, selectedValue, onValueChange, className 
     type="button"
     onClick={() => onValueChange?.(value)}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex items-center justify-center whitespace-nowrap px-4 py-3 text-sm font-medium transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 border-b-2 -mb-[2px]",
       selectedValue === value
-        ? "bg-white text-slate-900 shadow-sm"
-        : "text-slate-600 hover:text-slate-900",
+        ? "text-blue-600 border-blue-600 bg-blue-50/50"
+        : "text-slate-600 border-transparent hover:text-slate-900 hover:border-slate-300",
       className
     )}
   >
@@ -50,8 +59,10 @@ const TabsTrigger = ({ children, value, selectedValue, onValueChange, className 
   </button>
 )
 
-const TabsContent = ({ children, value, value: tabValue, className }: any) => {
-  if (tabValue !== value) return null
+const TabsContent = ({ children, value, selectedValue, className }: any) => {
+  // 'value' is the tab identifier (e.g., "thresholds")
+  // 'selectedValue' is passed from parent and indicates which tab is selected
+  if (value !== selectedValue) return null
   return <div className={className}>{children}</div>
 }
 
