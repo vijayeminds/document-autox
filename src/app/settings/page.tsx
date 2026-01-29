@@ -462,7 +462,8 @@ export default function Settings() {
                 SLA Configuration
               </CardTitle>
               <CardDescription>
-                Configure Service Level Agreement timelines for document processing stages
+                Configure Service Level Agreement timelines for document
+                processing stages
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -472,14 +473,18 @@ export default function Settings() {
                   Document Processing SLA (Hours)
                 </Label>
                 <p className="text-sm text-slate-500 mt-1 mb-3">
-                  Maximum time allowed for initial document processing and data extraction
+                  Maximum time allowed for initial document processing and data
+                  extraction
                 </p>
                 <div className="flex items-center gap-3">
                   <Input
                     type="number"
                     value={slaSettings.documentProcessing}
                     onChange={(e) =>
-                      handleSlaChange("documentProcessing", parseInt(e.target.value))
+                      handleSlaChange(
+                        "documentProcessing",
+                        parseInt(e.target.value),
+                      )
                     }
                     className="max-w-xs"
                     min="1"
@@ -503,7 +508,10 @@ export default function Settings() {
                     type="number"
                     value={slaSettings.approvalResponse}
                     onChange={(e) =>
-                      handleSlaChange("approvalResponse", parseInt(e.target.value))
+                      handleSlaChange(
+                        "approvalResponse",
+                        parseInt(e.target.value),
+                      )
                     }
                     className="max-w-xs"
                     min="1"
@@ -527,7 +535,10 @@ export default function Settings() {
                     type="number"
                     value={slaSettings.exceptionResolution}
                     onChange={(e) =>
-                      handleSlaChange("exceptionResolution", parseInt(e.target.value))
+                      handleSlaChange(
+                        "exceptionResolution",
+                        parseInt(e.target.value),
+                      )
                     }
                     className="max-w-xs"
                     min="1"
@@ -551,7 +562,10 @@ export default function Settings() {
                     type="number"
                     value={slaSettings.invoiceMatching}
                     onChange={(e) =>
-                      handleSlaChange("invoiceMatching", parseInt(e.target.value))
+                      handleSlaChange(
+                        "invoiceMatching",
+                        parseInt(e.target.value),
+                      )
                     }
                     className="max-w-xs"
                     min="1"
@@ -575,7 +589,10 @@ export default function Settings() {
                     type="number"
                     value={slaSettings.paymentProcessing}
                     onChange={(e) =>
-                      handleSlaChange("paymentProcessing", parseInt(e.target.value))
+                      handleSlaChange(
+                        "paymentProcessing",
+                        parseInt(e.target.value),
+                      )
                     }
                     className="max-w-xs"
                     min="1"
@@ -594,33 +611,46 @@ export default function Settings() {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Document Processing</span>
-                    <span className="font-medium">{slaSettings.documentProcessing}h</span>
+                    <span className="font-medium">
+                      {slaSettings.documentProcessing}h
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Approval Response</span>
-                    <span className="font-medium">{slaSettings.approvalResponse}h</span>
+                    <span className="font-medium">
+                      {slaSettings.approvalResponse}h
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Exception Resolution</span>
-                    <span className="font-medium">{slaSettings.exceptionResolution}h</span>
+                    <span className="font-medium">
+                      {slaSettings.exceptionResolution}h
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Invoice Matching</span>
-                    <span className="font-medium">{slaSettings.invoiceMatching}h</span>
+                    <span className="font-medium">
+                      {slaSettings.invoiceMatching}h
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600">Payment Processing</span>
-                    <span className="font-medium">{slaSettings.paymentProcessing}h</span>
+                    <span className="font-medium">
+                      {slaSettings.paymentProcessing}h
+                    </span>
                   </div>
                   <Separator className="my-2" />
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-slate-900 font-semibold">Total End-to-End</span>
+                    <span className="text-slate-900 font-semibold">
+                      Total End-to-End
+                    </span>
                     <span className="font-bold text-blue-600">
-                      {slaSettings.documentProcessing + 
-                       slaSettings.approvalResponse + 
-                       slaSettings.exceptionResolution + 
-                       slaSettings.invoiceMatching + 
-                       slaSettings.paymentProcessing}h
+                      {slaSettings.documentProcessing +
+                        slaSettings.approvalResponse +
+                        slaSettings.exceptionResolution +
+                        slaSettings.invoiceMatching +
+                        slaSettings.paymentProcessing}
+                      h
                     </span>
                   </div>
                 </div>
