@@ -24,6 +24,40 @@ export async function GET(request: NextRequest) {
   console.log("Timestamp:", new Date().toISOString());
   console.log("============================================\n");
 
+  // Validate AWS credentials are available
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+
+  console.log("AWS Credentials Check:");
+  console.log(
+    "- Access Key ID present:",
+    !!accessKeyId,
+    accessKeyId ? `(${accessKeyId.substring(0, 8)}...)` : "(missing)",
+  );
+  console.log(
+    "- Secret Access Key present:",
+    !!secretAccessKey,
+    secretAccessKey ? "(present)" : "(missing)",
+  );
+  console.log("- Region:", AWS_REGION);
+
+  if (!accessKeyId || !secretAccessKey) {
+    console.error("❌ AWS credentials not found in environment variables!");
+    return NextResponse.json(
+      {
+        error: "Server configuration error",
+        message:
+          "AWS credentials are not properly configured. Please check server environment variables.",
+        debug: {
+          hasAccessKey: !!accessKeyId,
+          hasSecretKey: !!secretAccessKey,
+          region: AWS_REGION,
+        },
+      },
+      { status: 500 },
+    );
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const url = searchParams.get("url");
@@ -99,9 +133,11 @@ export async function GET(request: NextRequest) {
     const s3Client = new S3Client({
       region: region,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey,
       },
+      forcePathStyle: false, // Use virtual-hosted-style URLs
+      useAccelerateEndpoint: false,
     });
 
     // Create GetObject command
@@ -134,6 +170,76 @@ export async function GET(request: NextRequest) {
       // Try to parse XML error if it's from S3
       if (errorText.includes("<?xml")) {
         console.error("S3 XML Error Response:", errorText);
+
+        // If it's a redirect error, extract the correct endpoint
+        if (
+          errorText.includes("PermanentRedirect") &&
+          errorText.includes("Endpoint")
+        ) {
+          const endpointMatch = errorText.match(/<Endpoint>(.*?)<\/Endpoint>/);
+          if (endpointMatch) {
+            const correctEndpoint = endpointMatch[1];
+            console.log("S3 suggests using endpoint:", correctEndpoint);
+
+            // Extract region from endpoint
+            const regionMatch = correctEndpoint.match(
+              /s3[.-]([a-z0-9-]+)\.amazonaws\.com/,
+            );
+            if (regionMatch) {
+              const correctRegion = regionMatch[1];
+              console.log("Retrying with correct region:", correctRegion);
+
+              // Retry with the correct region
+              const retryClient = new S3Client({
+                region: correctRegion,
+                credentials: {
+                  accessKeyId: accessKeyId,
+                  secretAccessKey: secretAccessKey,
+                },
+                forcePathStyle: false,
+              });
+
+              const retryCommand = new GetObjectCommand({
+                Bucket: bucket,
+                Key: key,
+              });
+
+              const retryPresignedUrl = await getSignedUrl(
+                retryClient,
+                retryCommand,
+                {
+                  expiresIn: 3600,
+                },
+              );
+
+              const retryResponse = await fetch(retryPresignedUrl, {
+                redirect: "follow",
+              });
+
+              if (retryResponse.ok) {
+                const retryBuffer = Buffer.from(
+                  await retryResponse.arrayBuffer(),
+                );
+                console.log(
+                  "✅ Successfully fetched PDF after retry, size:",
+                  retryBuffer.length,
+                );
+
+                return new NextResponse(retryBuffer, {
+                  status: 200,
+                  headers: {
+                    "Content-Type":
+                      retryResponse.headers.get("content-type") ||
+                      "application/pdf",
+                    "Content-Disposition": "inline",
+                    "Content-Length": retryBuffer.length.toString(),
+                    "Cache-Control": "public, max-age=3600",
+                  },
+                });
+              }
+            }
+          }
+        }
       }
 
       return NextResponse.json(

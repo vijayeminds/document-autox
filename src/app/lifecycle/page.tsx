@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -40,19 +40,19 @@ export default function Lifecycle() {
   // Fetch all documents
   const { data: documents = [], isLoading: docsLoading } = useQuery({
     queryKey: ["documents"],
-    queryFn: () => base44.entities.Document.list("-created_date", 200),
+    queryFn: () => base44.entities.Document.list("-created_date", 2),
   });
 
   // Fetch all links
   const { data: links = [], isLoading: linksLoading } = useQuery({
     queryKey: ["documentLinks"],
-    queryFn: () => base44.entities.DocumentLink.list("-created_date", 200),
+    queryFn: () => base44.entities.DocumentLink.list("-created_date", 2),
   });
 
   // Fetch exceptions
   const { data: exceptions = [] } = useQuery({
     queryKey: ["exceptions"],
-    queryFn: () => base44.entities.Exception.list("-created_date", 200),
+    queryFn: () => base44.entities.Exception.list("-created_date", 2),
   });
 
   // Create links mutation
@@ -86,7 +86,7 @@ export default function Lifecycle() {
       toast.success(
         `Created ${createdLinks.length} document link${
           createdLinks.length !== 1 ? "s" : ""
-        }`
+        }`,
       );
       setShowLinkDialog(false);
     },
@@ -127,7 +127,7 @@ export default function Lifecycle() {
             (link.source_document_id === doc.id &&
               chain.some((d) => d.id === link.target_document_id)) ||
             (link.target_document_id === doc.id &&
-              chain.some((d) => d.id === link.source_document_id))
+              chain.some((d) => d.id === link.source_document_id)),
         );
 
         if (hasLink) {
@@ -150,7 +150,7 @@ export default function Lifecycle() {
         chain.sort(
           (a, b) =>
             (typeOrder[a.document_type] || 99) -
-            (typeOrder[b.document_type] || 99)
+            (typeOrder[b.document_type] || 99),
         );
       });
     });
@@ -173,7 +173,7 @@ export default function Lifecycle() {
           (d) =>
             d.document_type === "ASN" ||
             d.document_type === "BOL" ||
-            d.document_type === "POD"
+            d.document_type === "POD",
         );
 
         let status = "Incomplete";
@@ -192,7 +192,7 @@ export default function Lifecycle() {
         // Check for exceptions
         const chainDocIds = chain.map((d) => d.id);
         const chainExceptions = exceptions.filter((ex) =>
-          chainDocIds.includes(ex.document_id)
+          chainDocIds.includes(ex.document_id),
         );
         if (chainExceptions.length > 0) {
           status = "Needs Review";
@@ -208,7 +208,7 @@ export default function Lifecycle() {
             (d) =>
               d.reference_number?.toLowerCase().includes(searchLower) ||
               d.vendor?.toLowerCase().includes(searchLower) ||
-              d.id.toLowerCase().includes(searchLower)
+              d.id.toLowerCase().includes(searchLower),
           );
           if (!matches) return;
         }
@@ -223,7 +223,7 @@ export default function Lifecycle() {
           links: links.filter(
             (link) =>
               chainDocIds.includes(link.source_document_id) ||
-              chainDocIds.includes(link.target_document_id)
+              chainDocIds.includes(link.target_document_id),
           ),
         });
       });
@@ -243,18 +243,18 @@ export default function Lifecycle() {
   const stats = useMemo(() => {
     const total = filteredChains.length;
     const complete = filteredChains.filter(
-      (c) => c.status === "Complete"
+      (c) => c.status === "Complete",
     ).length;
     const needsReview = filteredChains.filter(
-      (c) => c.status === "Needs Review"
+      (c) => c.status === "Needs Review",
     ).length;
     const incomplete = filteredChains.filter(
-      (c) => c.status === "Incomplete"
+      (c) => c.status === "Incomplete",
     ).length;
 
     // Calculate STP Rate - chains that are complete with no exceptions
     const stpEligible = filteredChains.filter(
-      (c) => c.status === "Complete" && c.exceptions.length === 0
+      (c) => c.status === "Complete" && c.exceptions.length === 0,
     ).length;
     const stpRate = total > 0 ? Math.round((stpEligible / total) * 100) : 0;
 

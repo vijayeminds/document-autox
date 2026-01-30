@@ -143,11 +143,10 @@ const getExceptionColor = (issue) => {
   return colors[issue] || "bg-slate-100 text-slate-700 border-slate-200";
 };
 
-export default function KanbanBoard({ invoices, focusedView = false }) {
+export default function KanbanBoard({ invoices }) {
   const router = useRouter();
   const [localInvoices, setLocalInvoices] = useState(invoices);
   const [hoveredCard, setHoveredCard] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [selectedHighlightId, setSelectedHighlightId] = useState(null);
@@ -226,21 +225,36 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
   };
 
   const handleCardClick = (invoice) => {
-    if (focusedView) {
-      // In focused view, open modal with PDF viewer and extracted data
-      const docId = invoice._id || "doc_sample_" + invoice.id;
-      console.log("=== Card Clicked ===");
-      console.log("Invoice object:", invoice);
-      console.log("Document ID:", docId);
-      console.log("File URL:", invoice.file_url);
-      setSelectedInvoiceId(docId);
-      setSelectedInvoice(invoice);
-      setModalOpen(true);
-    } else {
-      // In normal view, navigate to page
-      const docId = invoice._id || "doc_sample_" + invoice.id;
-      router.push(createPageUrl("Document-Viewer") + `?id=${docId}`);
+    // Navigate to document viewer page with view type based on bucket
+    const docId = invoice._id || "doc_sample_" + invoice.id;
+    let viewType = "default";
+
+    console.log("🔍 Invoice bucket_name:", invoice.bucket_name);
+    console.log("🔍 Invoice status:", invoice.status);
+    console.log("🔍 Invoice po_id:", invoice.po_id);
+
+    // Check if this invoice has a PO match (meaning it's in Matched column)
+    const hasPoMatch = allPoMatches.some(
+      (match) => match.po_id === invoice.po_id || match._id === invoice._id,
+    );
+    console.log("🔍 Has PO match:", hasPoMatch);
+
+    if (hasPoMatch) {
+      viewType = "matched"; // PDF + Extracted Data + PO Data (3 columns)
+    } else if (invoice.bucket_name === "Received") {
+      viewType = "received"; // Only PDF
+    } else if (
+      invoice.bucket_name === "Review Needed" ||
+      invoice.bucket_name === "Needs Review"
+    ) {
+      viewType = "review"; // PDF + Extracted Data (2 columns)
     }
+
+    console.log("🎯 Navigating with viewType:", viewType);
+
+    router.push(
+      createPageUrl("Document-Viewer") + `?id=${docId}&view=${viewType}`,
+    );
   };
 
   // Calculate column summaries
@@ -311,9 +325,7 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
               return (
                 <div
                   key={column.id}
-                  className={`flex-shrink-0 flex flex-col h-full transition-all duration-250 ${
-                    focusedView ? "w-[220px]" : "w-[300px]"
-                  }`}
+                  className="flex-shrink-0 flex flex-col h-full transition-all duration-250 w-[300px]"
                 >
                   {/* Column Header - Enhanced */}
                   <div
@@ -426,9 +438,7 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
                                     setHoveredCard(invoice._id)
                                   }
                                   onMouseLeave={() => setHoveredCard(null)}
-                                  className={`bg-white rounded-xl border cursor-pointer transition-all relative ${
-                                    focusedView ? "p-3" : "p-4"
-                                  } ${
+                                  className={`bg-white rounded-xl border cursor-pointer transition-all relative p-4 ${
                                     snapshot.isDragging
                                       ? "shadow-2xl rotate-2 scale-105 border-slate-300"
                                       : hoveredCard === invoice._id
@@ -437,95 +447,46 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
                                   }`}
                                   onClick={() => handleCardClick(invoice)}
                                 >
-                                  {focusedView ? (
-                                    // FOCUSED VIEW - Compressed Card
-                                    <>
-                                      {/* Invoice ID & Status */}
-                                      <div className="flex items-start justify-between mb-2">
-                                        <span className="text-xs font-mono font-bold text-slate-900 truncate">
-                                          {invoice.po_id}
-                                        </span>
-                                      </div>
+                                  {/* Invoice ID */}
+                                  <div className="mb-3">
+                                    <span className="text-sm font-mono font-bold text-slate-900">
+                                      {invoice.po_id}
+                                    </span>
+                                  </div>
 
-                                      {/* Vendor - Truncated */}
-                                      <div className="mb-2">
-                                        <p className="text-xs font-semibold text-slate-700 truncate">
-                                          {
-                                            invoice.extracted_json?.supplier
-                                              ?.name
-                                          }
-                                        </p>
-                                      </div>
+                                  {/* Vendor */}
+                                  <div className="mb-3">
+                                    <p className="text-sm font-semibold text-slate-900 line-clamp-2">
+                                      {invoice.extracted_json?.supplier?.name}
+                                    </p>
+                                    {invoice.po_id && (
+                                      <p className="text-xs text-slate-500 mt-1 font-medium">
+                                        PO: {invoice.po_id}
+                                      </p>
+                                    )}
+                                  </div>
 
-                                      {/* Amount */}
-                                      <div className="mb-3">
-                                        <p className="text-lg font-extrabold text-slate-900">
-                                          $
-                                          {invoice.extracted_json?.summary?.grand_total?.toLocaleString()}
-                                        </p>
-                                      </div>
+                                  {/* Amount */}
+                                  <div className="mb-4">
+                                    <p className="text-2xl font-extrabold text-slate-900">
+                                      $
+                                      {invoice.extracted_json?.summary?.grand_total?.toLocaleString()}
+                                    </p>
+                                  </div>
 
-                                      {/* Status Badge */}
-                                      <Badge
-                                        variant="outline"
-                                        className={`${badgeConfig.color} border-0 text-xs w-full justify-center py-1.5 font-semibold`}
-                                      >
-                                        {StatusIcon && (
-                                          <StatusIcon className="w-3 h-3 mr-1" />
-                                        )}
-                                        {invoice.status === "Needs Review"
-                                          ? "Review"
-                                          : invoice.bucket_name}
-                                      </Badge>
-                                    </>
-                                  ) : (
-                                    // NORMAL VIEW - Full Card
-                                    <>
-                                      {/* Invoice ID */}
-                                      <div className="mb-3">
-                                        <span className="text-sm font-mono font-bold text-slate-900">
-                                          {invoice.po_id}
-                                        </span>
-                                      </div>
-
-                                      {/* Vendor */}
-                                      <div className="mb-3">
-                                        <p className="text-sm font-semibold text-slate-900 line-clamp-2">
-                                          {
-                                            invoice.extracted_json?.supplier
-                                              ?.name
-                                          }
-                                        </p>
-                                        {invoice.po_id && (
-                                          <p className="text-xs text-slate-500 mt-1 font-medium">
-                                            PO: {invoice.po_id}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* Amount */}
-                                      <div className="mb-4">
-                                        <p className="text-2xl font-extrabold text-slate-900">
-                                          $
-                                          {invoice.extracted_json?.summary?.grand_total?.toLocaleString()}
-                                        </p>
-                                      </div>
-
-                                      {/* Status Badge - Full Width Button at Bottom */}
-                                      <div className="mt-auto">
-                                        <div
-                                          className={`${badgeConfig.color} border-0 rounded-lg py-2.5 px-3 text-xs font-bold text-center flex items-center justify-center gap-2 shadow-sm`}
-                                        >
-                                          {StatusIcon && (
-                                            <StatusIcon className="w-4 h-4" />
-                                          )}
-                                          {invoice.status === "Needs Review"
-                                            ? "Needs Review"
-                                            : invoice.bucket_name}
-                                        </div>
-                                      </div>
-                                    </>
-                                  )}
+                                  {/* Status Badge - Full Width Button at Bottom */}
+                                  <div className="mt-auto">
+                                    <div
+                                      className={`${badgeConfig.color} border-0 rounded-lg py-2.5 px-3 text-xs font-bold text-center flex items-center justify-center gap-2 shadow-sm`}
+                                    >
+                                      {StatusIcon && (
+                                        <StatusIcon className="w-4 h-4" />
+                                      )}
+                                      {invoice.status === "Needs Review"
+                                        ? "Needs Review"
+                                        : invoice.bucket_name}
+                                    </div>
+                                  </div>
                                 </div>
                               )}
                             </Draggable>
@@ -552,907 +513,6 @@ export default function KanbanBoard({ invoices, focusedView = false }) {
       </DragDropContext>
 
       {/* Document Viewer Modal - Focused View Only */}
-      {focusedView && (
-        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-          <DialogContent className="max-w-[95vw] max-h-[95vh] h-[95vh] p-0">
-            <DialogHeader className="px-6 py-4 border-b border-slate-200">
-              <DialogTitle className="flex items-center justify-between">
-                <div>
-                  <span className="text-lg font-semibold">
-                    {selectedInvoice?.po_id || "Document Review"}
-                  </span>
-                  {selectedInvoice && (
-                    <p className="text-sm text-slate-500 mt-1">
-                      {selectedInvoice.extracted_json?.supplier?.name ||
-                        "Vendor"}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setModalOpen(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </DialogTitle>
-            </DialogHeader>
-            <div className="h-[calc(95vh-80px)] overflow-hidden flex">
-              {selectedInvoice ? (
-                <>
-                  {/* Left Side - PDF Viewer */}
-                  <div className="w-1/2 border-r border-slate-200 bg-slate-50 flex items-center justify-center">
-                    <div className="w-full h-full p-4">
-                      {/* PDF Preview */}
-                      {selectedInvoice.file_url ? (
-                        selectedInvoice.file_url
-                          .toLowerCase()
-                          .endsWith(".pdf") ? (
-                          <iframe
-                            src={`/api/proxy-pdf?url=${encodeURIComponent(selectedInvoice.file_url)}`}
-                            className="w-full h-full border-0 rounded-lg shadow-lg"
-                            title="Invoice PDF"
-                            style={{ minHeight: "80vh" }}
-                            onLoad={() =>
-                              console.log("✅ PDF iframe loaded in modal")
-                            }
-                            onError={(e) =>
-                              console.error("❌ PDF iframe error in modal:", e)
-                            }
-                          />
-                        ) : (
-                          <div className="relative">
-                            <img
-                              src={selectedInvoice.file_url}
-                              alt="Invoice Document"
-                              className="w-full h-auto block rounded-lg"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.onerror = null;
-                                target.src =
-                                  "https://via.placeholder.com/800x1000?text=Document+Not+Available";
-                              }}
-                            />
-
-                            {/* Highlight overlays */}
-                            {selectedHighlightId && (
-                              <div
-                                className="absolute border-2 border-amber-400 bg-amber-200/30 pointer-events-none"
-                                style={{
-                                  left: "6%",
-                                  top: "23.5%",
-                                  width: "25%",
-                                  height: "3%",
-                                }}
-                              />
-                            )}
-                          </div>
-                        )
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-slate-400">
-                          <div className="text-center">
-                            <p className="text-lg font-medium mb-2">
-                              No document available
-                            </p>
-                            <p className="text-sm">Document URL not found</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right Side - Comprehensive Data with Tabs */}
-                  <div className="w-1/2 overflow-auto bg-white">
-                    <Tabs defaultValue="extracted" className="h-full">
-                      <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-3 z-10">
-                        <TabsList className="grid w-full grid-cols-4">
-                          <TabsTrigger value="extracted">Extracted</TabsTrigger>
-                          <TabsTrigger value="pomatch">PO Match</TabsTrigger>
-                          <TabsTrigger value="validation">
-                            Validation
-                          </TabsTrigger>
-                          <TabsTrigger value="lineitems">
-                            Line Items
-                          </TabsTrigger>
-                        </TabsList>
-                      </div>
-
-                      {/* TAB 1: Extracted Data */}
-                      <TabsContent
-                        value="extracted"
-                        className="p-6 space-y-4 m-0"
-                      >
-                        <div>
-                          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                            Invoice Extracted Data
-                          </h3>
-
-                          {/* Supplier Information */}
-                          <div className="mb-6">
-                            <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                              Supplier
-                            </h4>
-                            <div className="bg-slate-50 p-4 rounded-lg space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Name:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  {selectedInvoice.extracted_json?.supplier
-                                    ?.name || "N/A"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Address:
-                                </span>
-                                <span className="text-xs font-semibold text-right max-w-xs">
-                                  {selectedInvoice.extracted_json?.supplier
-                                    ?.address || "N/A"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  GST/Tax ID:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  {selectedInvoice.extracted_json?.supplier
-                                    ?.gst_or_tax_id || "N/A"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Contact:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  {selectedInvoice.extracted_json?.supplier
-                                    ?.contact || "N/A"}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Invoice Metadata */}
-                          <div className="mb-6">
-                            <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                              Invoice Details
-                            </h4>
-                            <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Invoice ID:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  {selectedInvoice.extracted_json
-                                    ?.invoice_metadata?.invoice_id ||
-                                    selectedInvoice.po_id}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  PO Number:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  {selectedInvoice.extracted_json?.po_number ||
-                                    "N/A"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Invoice Date:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  {selectedInvoice.extracted_json
-                                    ?.invoice_metadata?.invoice_date || "N/A"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Due Date:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  {selectedInvoice.extracted_json
-                                    ?.invoice_metadata?.due_date || "N/A"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Order Number:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  {selectedInvoice.extracted_json
-                                    ?.invoice_metadata?.order_number || "N/A"}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Summary */}
-                          <div className="mb-6">
-                            <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                              Summary
-                            </h4>
-                            <div className="bg-emerald-50 p-4 rounded-lg space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Subtotal:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  $
-                                  {selectedInvoice.extracted_json?.summary?.subtotal?.toLocaleString() ||
-                                    "0"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Taxes:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  $
-                                  {selectedInvoice.extracted_json?.summary?.taxes?.toLocaleString() ||
-                                    "0"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Shipping:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  $
-                                  {selectedInvoice.extracted_json?.summary?.shipping_charges?.toLocaleString() ||
-                                    "0"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs text-slate-600">
-                                  Other Charges:
-                                </span>
-                                <span className="text-xs font-semibold">
-                                  $
-                                  {selectedInvoice.extracted_json?.summary?.other_charges?.toLocaleString() ||
-                                    "0"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between pt-2 border-t-2 border-emerald-200">
-                                <span className="text-sm font-bold text-slate-900">
-                                  Grand Total:
-                                </span>
-                                <span className="text-sm font-bold text-emerald-700">
-                                  $
-                                  {selectedInvoice.extracted_json?.summary?.grand_total?.toLocaleString() ||
-                                    "0"}
-                                </span>
-                              </div>
-                              {selectedInvoice.extracted_json?.additional_info
-                                ?.currency && (
-                                <div className="flex justify-between">
-                                  <span className="text-xs text-slate-600">
-                                    Currency:
-                                  </span>
-                                  <span className="text-xs font-semibold">
-                                    {
-                                      selectedInvoice.extracted_json
-                                        .additional_info.currency
-                                    }
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Additional Info */}
-                          {selectedInvoice.extracted_json?.additional_info && (
-                            <div className="mb-6">
-                              <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                                Additional Information
-                              </h4>
-                              <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-xs">
-                                {selectedInvoice.extracted_json.additional_info
-                                  .place_of_supply && (
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-600">
-                                      Place of Supply:
-                                    </span>
-                                    <span className="font-semibold">
-                                      {
-                                        selectedInvoice.extracted_json
-                                          .additional_info.place_of_supply
-                                      }
-                                    </span>
-                                  </div>
-                                )}
-                                {selectedInvoice.extracted_json.additional_info
-                                  .place_of_delivery && (
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-600">
-                                      Place of Delivery:
-                                    </span>
-                                    <span className="font-semibold">
-                                      {
-                                        selectedInvoice.extracted_json
-                                          .additional_info.place_of_delivery
-                                      }
-                                    </span>
-                                  </div>
-                                )}
-                                {selectedInvoice.extracted_json.additional_info
-                                  .notes && (
-                                  <div>
-                                    <span className="text-slate-600">
-                                      Notes:
-                                    </span>
-                                    <p className="font-semibold mt-1">
-                                      {
-                                        selectedInvoice.extracted_json
-                                          .additional_info.notes
-                                      }
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </TabsContent>
-
-                      {/* TAB 2: PO Match Data */}
-                      <TabsContent
-                        value="pomatch"
-                        className="p-6 space-y-4 m-0"
-                      >
-                        {poMatchData ? (
-                          <div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                              PO Match Details
-                            </h3>
-
-                            {/* Match Field Scores */}
-                            {poMatchData.match_field_score && (
-                              <div className="mb-6">
-                                <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                                  Match Scores
-                                </h4>
-                                <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-                                  <div className="flex justify-between">
-                                    <span className="text-xs text-slate-600">
-                                      PO Number:
-                                    </span>
-                                    <span className="text-xs font-bold text-blue-700">
-                                      {poMatchData.match_field_score
-                                        .po_number || 0}
-                                      %
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-xs text-slate-600">
-                                      Supplier:
-                                    </span>
-                                    <span className="text-xs font-bold text-blue-700">
-                                      {poMatchData.match_field_score.supplier ||
-                                        0}
-                                      %
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-xs text-slate-600">
-                                      Totals Accuracy:
-                                    </span>
-                                    <span className="text-xs font-bold text-blue-700">
-                                      {poMatchData.match_field_score
-                                        .totals_accuracy || 0}
-                                      %
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-xs text-slate-600">
-                                      Dates Accuracy:
-                                    </span>
-                                    <span className="text-xs font-bold text-blue-700">
-                                      {poMatchData.match_field_score
-                                        .dates_accuracy || 0}
-                                      %
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-xs text-slate-600">
-                                      Receipt Accuracy:
-                                    </span>
-                                    <span className="text-xs font-bold text-blue-700">
-                                      {poMatchData.match_field_score
-                                        .receipt_accuracy || 0}
-                                      %
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-xs text-slate-600">
-                                      Invoice Metadata:
-                                    </span>
-                                    <span className="text-xs font-bold text-blue-700">
-                                      {poMatchData.match_field_score
-                                        .invoice_metadata || 0}
-                                      %
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* PO Data */}
-                            {poMatchData.po_data && (
-                              <div className="mb-6">
-                                <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                                  Purchase Order Data
-                                </h4>
-                                <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-600">
-                                      PO Number:
-                                    </span>
-                                    <span className="font-semibold">
-                                      {poMatchData.po_data.po_number || "N/A"}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-600">
-                                      Date:
-                                    </span>
-                                    <span className="font-semibold">
-                                      {poMatchData.po_data.date || "N/A"}
-                                    </span>
-                                  </div>
-                                  {poMatchData.po_data.supplier && (
-                                    <>
-                                      <div className="flex justify-between">
-                                        <span className="text-slate-600">
-                                          Supplier:
-                                        </span>
-                                        <span className="font-semibold">
-                                          {poMatchData.po_data.supplier.name ||
-                                            "N/A"}
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-slate-600">
-                                          Tax ID:
-                                        </span>
-                                        <span className="font-semibold">
-                                          {poMatchData.po_data.supplier
-                                            .tax_id || "N/A"}
-                                        </span>
-                                      </div>
-                                    </>
-                                  )}
-                                  {poMatchData.po_data.summary && (
-                                    <>
-                                      <div className="flex justify-between pt-2 border-t border-slate-200">
-                                        <span className="text-slate-600">
-                                          PO Subtotal:
-                                        </span>
-                                        <span className="font-semibold">
-                                          $
-                                          {poMatchData.po_data.summary.subtotal?.toLocaleString() ||
-                                            "0"}
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-slate-600">
-                                          PO Total:
-                                        </span>
-                                        <span className="font-bold text-slate-900">
-                                          $
-                                          {poMatchData.po_data.summary.total_amount_due?.toLocaleString() ||
-                                            "0"}
-                                        </span>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Receipt Data */}
-                            {poMatchData.receipt && (
-                              <div className="mb-6">
-                                <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                                  Receipt Data
-                                </h4>
-                                <div className="bg-green-50 p-4 rounded-lg space-y-2 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-600">
-                                      Receipt PO Number:
-                                    </span>
-                                    <span className="font-semibold">
-                                      {poMatchData.receipt.po_number || "N/A"}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-600">
-                                      Date:
-                                    </span>
-                                    <span className="font-semibold">
-                                      {poMatchData.receipt.date || "N/A"}
-                                    </span>
-                                  </div>
-                                  {poMatchData.receipt.summary && (
-                                    <>
-                                      <div className="flex justify-between pt-2 border-t border-green-200">
-                                        <span className="text-slate-600">
-                                          Receipt Total:
-                                        </span>
-                                        <span className="font-bold text-green-700">
-                                          $
-                                          {poMatchData.receipt.summary.total_amount_due?.toLocaleString() ||
-                                            "0"}
-                                        </span>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-center py-12">
-                            <AlertTriangle className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                            <p className="text-sm text-slate-600">
-                              No PO match data available
-                            </p>
-                          </div>
-                        )}
-                      </TabsContent>
-
-                      {/* TAB 3: Validation Scores */}
-                      <TabsContent
-                        value="validation"
-                        className="p-6 space-y-4 m-0"
-                      >
-                        <div>
-                          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                            Validation Results
-                          </h3>
-
-                          {selectedInvoice.validation_result && (
-                            <div className="space-y-4">
-                              {/* Overall Scores */}
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-emerald-50 p-4 rounded-lg text-center">
-                                  <div className="text-2xl font-bold text-emerald-700">
-                                    {selectedInvoice.validation_result
-                                      .po_number || 0}
-                                    %
-                                  </div>
-                                  <div className="text-xs text-slate-600 mt-1">
-                                    PO Number
-                                  </div>
-                                </div>
-                                <div className="bg-blue-50 p-4 rounded-lg text-center">
-                                  <div className="text-2xl font-bold text-blue-700">
-                                    {selectedInvoice.validation_result
-                                      .supplier || 0}
-                                    %
-                                  </div>
-                                  <div className="text-xs text-slate-600 mt-1">
-                                    Supplier
-                                  </div>
-                                </div>
-                                <div className="bg-purple-50 p-4 rounded-lg text-center">
-                                  <div className="text-2xl font-bold text-purple-700">
-                                    {selectedInvoice.validation_result
-                                      .totals_accuracy || 0}
-                                    %
-                                  </div>
-                                  <div className="text-xs text-slate-600 mt-1">
-                                    Totals Accuracy
-                                  </div>
-                                </div>
-                                <div className="bg-amber-50 p-4 rounded-lg text-center">
-                                  <div className="text-2xl font-bold text-amber-700">
-                                    {selectedInvoice.validation_result
-                                      .dates_accuracy || 0}
-                                    %
-                                  </div>
-                                  <div className="text-xs text-slate-600 mt-1">
-                                    Dates Accuracy
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Item-level Validation */}
-                              {selectedInvoice.validation_result.items && (
-                                <div className="mt-6">
-                                  <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                                    Item Validation Scores
-                                  </h4>
-                                  <div className="space-y-2">
-                                    {Object.entries(
-                                      selectedInvoice.validation_result.items,
-                                    ).map(([key, item]: [string, any]) => (
-                                      <div
-                                        key={key}
-                                        className="bg-slate-50 p-3 rounded-lg"
-                                      >
-                                        <div className="flex justify-between items-center mb-2">
-                                          <span className="text-xs font-semibold text-slate-700">
-                                            {key
-                                              .replace("_", " ")
-                                              .toUpperCase()}
-                                          </span>
-                                          <Badge
-                                            className={`${item.item_score >= 90 ? "bg-emerald-100 text-emerald-700" : item.item_score >= 75 ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"}`}
-                                          >
-                                            {item.item_score || 0}%
-                                          </Badge>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-2 text-xs">
-                                          <div>
-                                            <span className="text-slate-500">
-                                              Desc:
-                                            </span>
-                                            <span className="ml-1 font-semibold">
-                                              {item.description || 0}%
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-slate-500">
-                                              Qty:
-                                            </span>
-                                            <span className="ml-1 font-semibold">
-                                              {item.quantity || 0}%
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-slate-500">
-                                              Price:
-                                            </span>
-                                            <span className="ml-1 font-semibold">
-                                              {item.unit_price || 0}%
-                                            </span>
-                                          </div>
-                                        </div>
-                                        {item.line_status && (
-                                          <div className="mt-2 pt-2 border-t border-slate-200">
-                                            <span className="text-xs text-slate-600">
-                                              Status:{" "}
-                                            </span>
-                                            <span
-                                              className={`text-xs font-semibold ${item.line_status === "payable" ? "text-emerald-600" : item.line_status === "pay partial" ? "text-amber-600" : "text-rose-600"}`}
-                                            >
-                                              {item.line_status}
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </TabsContent>
-
-                      {/* TAB 4: Line Items Comparison Table */}
-                      <TabsContent value="lineitems" className="p-6 m-0">
-                        <div>
-                          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                            Line Items Comparison
-                          </h3>
-
-                          {selectedInvoice.extracted_json?.items &&
-                          selectedInvoice.extracted_json.items.length > 0 ? (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-xs border-collapse">
-                                <thead>
-                                  <tr className="bg-slate-100">
-                                    <th className="border border-slate-300 px-2 py-2 text-left font-semibold">
-                                      Description
-                                    </th>
-                                    <th className="border border-slate-300 px-2 py-2 text-left font-semibold">
-                                      SKU
-                                    </th>
-                                    <th className="border border-slate-300 px-2 py-2 text-right font-semibold">
-                                      Qty
-                                    </th>
-                                    <th className="border border-slate-300 px-2 py-2 text-right font-semibold">
-                                      Unit Price
-                                    </th>
-                                    <th className="border border-slate-300 px-2 py-2 text-right font-semibold">
-                                      Discount
-                                    </th>
-                                    <th className="border border-slate-300 px-2 py-2 text-right font-semibold">
-                                      Tax %
-                                    </th>
-                                    <th className="border border-slate-300 px-2 py-2 text-right font-semibold">
-                                      Total
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {selectedInvoice.extracted_json.items.map(
-                                    (item, idx) => (
-                                      <tr
-                                        key={idx}
-                                        className="hover:bg-slate-50"
-                                      >
-                                        <td className="border border-slate-300 px-2 py-2">
-                                          {item.description || "N/A"}
-                                        </td>
-                                        <td className="border border-slate-300 px-2 py-2">
-                                          {item.sku || "N/A"}
-                                        </td>
-                                        <td className="border border-slate-300 px-2 py-2 text-right font-semibold">
-                                          {item.quantity || 0}
-                                        </td>
-                                        <td className="border border-slate-300 px-2 py-2 text-right">
-                                          $
-                                          {item.unit_price?.toLocaleString() ||
-                                            0}
-                                        </td>
-                                        <td className="border border-slate-300 px-2 py-2 text-right">
-                                          {item.discount || "0%"}
-                                        </td>
-                                        <td className="border border-slate-300 px-2 py-2 text-right">
-                                          {item.tax_percent || "0%"}
-                                        </td>
-                                        <td className="border border-slate-300 px-2 py-2 text-right font-bold">
-                                          $
-                                          {item.total_amount?.toLocaleString() ||
-                                            0}
-                                        </td>
-                                      </tr>
-                                    ),
-                                  )}
-                                </tbody>
-                              </table>
-
-                              {/* PO and Receipt Line Items if available */}
-                              {poMatchData?.po_data?.items && (
-                                <div className="mt-6">
-                                  <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                                    PO Line Items (for comparison)
-                                  </h4>
-                                  <table className="w-full text-xs border-collapse">
-                                    <thead>
-                                      <tr className="bg-blue-50">
-                                        <th className="border border-blue-200 px-2 py-2 text-left font-semibold">
-                                          Description
-                                        </th>
-                                        <th className="border border-blue-200 px-2 py-2 text-left font-semibold">
-                                          SKU
-                                        </th>
-                                        <th className="border border-blue-200 px-2 py-2 text-right font-semibold">
-                                          PO Qty
-                                        </th>
-                                        <th className="border border-blue-200 px-2 py-2 text-right font-semibold">
-                                          Unit Price
-                                        </th>
-                                        <th className="border border-blue-200 px-2 py-2 text-right font-semibold">
-                                          Total
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {poMatchData.po_data.items.map(
-                                        (item, idx) => (
-                                          <tr
-                                            key={idx}
-                                            className="hover:bg-blue-50/50"
-                                          >
-                                            <td className="border border-blue-200 px-2 py-2">
-                                              {item.description || "N/A"}
-                                            </td>
-                                            <td className="border border-blue-200 px-2 py-2">
-                                              {item.sku || "N/A"}
-                                            </td>
-                                            <td className="border border-blue-200 px-2 py-2 text-right font-semibold">
-                                              {item.quantity || 0}
-                                            </td>
-                                            <td className="border border-blue-200 px-2 py-2 text-right">
-                                              $
-                                              {item.unit_price?.toLocaleString() ||
-                                                0}
-                                            </td>
-                                            <td className="border border-blue-200 px-2 py-2 text-right font-bold">
-                                              $
-                                              {item.line_total?.toLocaleString() ||
-                                                0}
-                                            </td>
-                                          </tr>
-                                        ),
-                                      )}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-
-                              {/* Receipt Line Items if available */}
-                              {poMatchData?.receipt?.items && (
-                                <div className="mt-6">
-                                  <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                                    Receipt Line Items
-                                  </h4>
-                                  <table className="w-full text-xs border-collapse">
-                                    <thead>
-                                      <tr className="bg-green-50">
-                                        <th className="border border-green-200 px-2 py-2 text-left font-semibold">
-                                          Description
-                                        </th>
-                                        <th className="border border-green-200 px-2 py-2 text-left font-semibold">
-                                          SKU
-                                        </th>
-                                        <th className="border border-green-200 px-2 py-2 text-right font-semibold">
-                                          Receipt Qty
-                                        </th>
-                                        <th className="border border-green-200 px-2 py-2 text-right font-semibold">
-                                          Unit Price
-                                        </th>
-                                        <th className="border border-green-200 px-2 py-2 text-right font-semibold">
-                                          Total
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {poMatchData.receipt.items.map(
-                                        (item, idx) => (
-                                          <tr
-                                            key={idx}
-                                            className="hover:bg-green-50/50"
-                                          >
-                                            <td className="border border-green-200 px-2 py-2">
-                                              {item.description || "N/A"}
-                                            </td>
-                                            <td className="border border-green-200 px-2 py-2">
-                                              {item.sku || "N/A"}
-                                            </td>
-                                            <td className="border border-green-200 px-2 py-2 text-right font-semibold">
-                                              {item.quantity || 0}
-                                            </td>
-                                            <td className="border border-green-200 px-2 py-2 text-right">
-                                              $
-                                              {item.unit_price?.toLocaleString() ||
-                                                0}
-                                            </td>
-                                            <td className="border border-green-200 px-2 py-2 text-right font-bold">
-                                              $
-                                              {item.line_total?.toLocaleString() ||
-                                                0}
-                                            </td>
-                                          </tr>
-                                        ),
-                                      )}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-center py-12">
-                              <AlertTriangle className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                              <p className="text-sm text-slate-600">
-                                No line items available
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-full text-slate-400">
-                  <div className="text-center">
-                    <FileQuestion className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                    <p className="text-lg font-medium">No invoice selected</p>
-                    <p className="text-sm mt-2">
-                      Select an invoice from the board to view details
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </TooltipProvider>
   );
 }

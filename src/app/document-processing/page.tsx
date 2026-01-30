@@ -9,17 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Search,
-  Filter,
-  LayoutGrid,
-  List,
-  Maximize2,
-  Minimize2,
-} from "lucide-react";
+import { Search, Filter, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import KanbanBoard from "@/components/processing/KanbanBoard";
 import WorklistTable from "@/components/processing/WorklistTable";
 import { axiosInstance } from "@/utils";
@@ -255,13 +246,6 @@ export default function DocumentProcessing() {
   const [viewMode, setViewMode] = useState("kanban"); // 'kanban' or 'table'
   const [vendorFilter, setVendorFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [focusedView, setFocusedView] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = sessionStorage.getItem("kanban-focused-view");
-      return saved ? JSON.parse(saved) : false;
-    }
-    return false;
-  });
   const [invoices, setInvoices] = useState<any[]>([]);
   const [vendors, setVendors] = useState<string[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<any[]>([]);
@@ -298,56 +282,16 @@ export default function DocumentProcessing() {
     getInvoices();
   }, []);
 
-  // Persist focused view preference
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(
-        "kanban-focused-view",
-        JSON.stringify(focusedView),
-      );
-
-      // Communicate focused mode to layout
-      window.dispatchEvent(
-        new CustomEvent("kanban-focused-mode", {
-          detail: { focused: focusedView && viewMode === "kanban" },
-        }),
-      );
-    }
-  }, [focusedView, viewMode]);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="px-6 py-3">
           <div className="flex items-center justify-between gap-6">
-            {/* View Toggle - Left Side */}
-            {viewMode === "kanban" && (
-              <div className="flex items-center gap-2">
-                <Label
-                  htmlFor="focused-mode"
-                  className="text-sm text-slate-600 cursor-pointer flex items-center gap-2"
-                >
-                  {focusedView ? (
-                    <Maximize2 className="w-4 h-4" />
-                  ) : (
-                    <Minimize2 className="w-4 h-4" />
-                  )}
-                  {focusedView ? "Focused" : "Normal"}
-                </Label>
-                <Switch
-                  id="focused-mode"
-                  checked={focusedView}
-                  onCheckedChange={setFocusedView}
-                  className="data-[state=checked]:bg-slate-900"
-                />
-              </div>
-            )}
-
             {/* Title & Subtitle */}
             <div className="min-w-0">
               <h1 className="text-xl font-semibold text-slate-900">
-                AP Invoice Workflow — Kanban Board
+                Invoice Workflow
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
                 {filteredInvoices.length} invoice
@@ -355,8 +299,11 @@ export default function DocumentProcessing() {
               </p>
             </div>
 
+            {/* Spacer to push content right */}
+            <div className="flex-1"></div>
+
             {/* Filters & Actions */}
-            <div className="flex items-center gap-3 flex-1 max-w-2xl">
+            <div className="flex items-center gap-3">
               <Select value={vendorFilter} onValueChange={setVendorFilter}>
                 <SelectTrigger className="w-44">
                   <SelectValue placeholder="All Vendors" />
@@ -371,7 +318,7 @@ export default function DocumentProcessing() {
                 </SelectContent>
               </Select>
 
-              <div className="relative flex-1">
+              <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   placeholder="Search Invoice ID or Vendor..."
@@ -432,7 +379,7 @@ export default function DocumentProcessing() {
       {/* Content */}
       <div className="h-[calc(100vh-73px)] overflow-hidden">
         {viewMode === "kanban" ? (
-          <KanbanBoard invoices={filteredInvoices} focusedView={focusedView} />
+          <KanbanBoard invoices={filteredInvoices} />
         ) : (
           <div className="p-6 h-full overflow-auto">
             <WorklistTable invoices={filteredInvoices} />

@@ -8,6 +8,7 @@ import Sidebar from "@/components/navigation/Sidebar";
 import TopBar from "@/components/navigation/TopBar";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { Toaster } from "sonner";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ export default function RootLayout({
       <body>
         <QueryClientProvider client={queryClient}>
           <LayoutContent>{children}</LayoutContent>
+          <Toaster position="top-right" richColors />
         </QueryClientProvider>
       </body>
     </html>
